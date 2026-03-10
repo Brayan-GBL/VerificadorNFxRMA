@@ -19,7 +19,7 @@ except Exception:
     pytesseract = None
 
 
-st.set_page_config(page_title="Verificador NF x RMA - V3", layout="wide")
+st.set_page_config(page_title="Verificador NF x Espelho - V4", layout="wide")
 
 
 # ========================= CONFIG =========================
@@ -93,9 +93,11 @@ def only_digits(texto):
 def parse_num(texto):
     if texto is None:
         return None
+
     txt = normalize_ws(texto)
     if not txt:
         return None
+
     txt = re.sub(r"[^0-9,.\-]", "", txt)
     if not txt:
         return None
@@ -346,7 +348,14 @@ def selecionar_melhor_ancora(blocos, termos, preferir_primeira_pagina=True):
     return candidatos[0]
 
 
-def texto_proximo_da_ancora(blocos, ancora, margem_direita=500, margem_baixo=220, margem_esquerda=20, margem_cima=20):
+def texto_proximo_da_ancora(
+    blocos,
+    ancora,
+    margem_direita=500,
+    margem_baixo=220,
+    margem_esquerda=20,
+    margem_cima=20
+):
     if not ancora:
         return ""
 
@@ -378,11 +387,11 @@ def texto_total_blocos(blocos):
     return "\n".join(b["texto"] for b in blocos_ordenados)
 
 
-def extrair_campos_nf_por_blocos(file_bytes):
+def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     blocos = extrair_blocos_pdf(file_bytes)
     texto_global = texto_total_blocos(blocos)
 
-    ancora_dest = selecionar_melhor_ancora(
+    ancora_cliente = selecionar_melhor_ancora(
         blocos,
         [
             "DESTINATARIO",
@@ -392,6 +401,12 @@ def extrair_campos_nf_por_blocos(file_bytes):
             "DADOS DO DESTINATÁRIO",
             "DESTINATARIO / REMETENTE",
             "DESTINATÁRIO / REMETENTE",
+            "NOME/RAZAO SOCIAL",
+            "NOME/RAZÃO SOCIAL",
+            "NOME / RAZAO SOCIAL",
+            "NOME / RAZÃO SOCIAL",
+            "CLIENTE",
+            "SACADO",
         ],
     )
 
@@ -402,6 +417,9 @@ def extrair_campos_nf_por_blocos(file_bytes):
             "TRANSPORTE",
             "DADOS DO TRANSPORTE",
             "VOLUMES TRANSPORTADOS",
+            "TRANSPORTADORA",
+            "VOLUME",
+            "VOLUMES",
         ],
     )
 
@@ -410,6 +428,11 @@ def extrair_campos_nf_por_blocos(file_bytes):
         [
             "VALOR TOTAL DA NOTA",
             "TOTAL DA NOTA",
+            "TOTAL GERAL",
+            "TOT. LIQUIDO",
+            "TOT. LÍQUIDO",
+            "VALOR TOTAL",
+            "TOTAL",
         ],
     )
 
@@ -418,74 +441,85 @@ def extrair_campos_nf_por_blocos(file_bytes):
         [
             "FRETE POR CONTA",
             "MODALIDADE DO FRETE",
+            "FRETE",
+            "TIPO DE FRETE",
         ],
     )
 
-    texto_dest = texto_proximo_da_ancora(blocos, ancora_dest, margem_direita=650, margem_baixo=260)
-    texto_transp = texto_proximo_da_ancora(blocos, ancora_transp, margem_direita=650, margem_baixo=260)
-    texto_total = texto_proximo_da_ancora(blocos, ancora_total, margem_direita=250, margem_baixo=120)
-    texto_frete = texto_proximo_da_ancora(blocos, ancora_frete, margem_direita=300, margem_baixo=120)
+    texto_cliente = texto_proximo_da_ancora(blocos, ancora_cliente, margem_direita=700, margem_baixo=300)
+    texto_transp = texto_proximo_da_ancora(blocos, ancora_transp, margem_direita=700, margem_baixo=300)
+    texto_total = texto_proximo_da_ancora(blocos, ancora_total, margem_direita=350, margem_baixo=150)
+    texto_frete = texto_proximo_da_ancora(blocos, ancora_frete, margem_direita=350, margem_baixo=150)
 
     nome_cliente = buscar_primeiro(
-        texto_dest,
+        texto_cliente,
         [
             r"NOME\s*/?\s*RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
             r"RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
+            r"CLIENTE\s*[:\-]?\s*([^\n\r]+)",
+            r"SACADO\s*[:\-]?\s*([^\n\r]+)",
             r"DESTINAT[ÁA]RIO\s*[:\-]?\s*([^\n\r]+)",
             r"REMETENTE\s*[:\-]?\s*([^\n\r]+)",
         ],
     )
 
     if not nome_cliente:
-        linhas = [normalize_ws(l) for l in texto_dest.splitlines() if normalize_ws(l)]
+        linhas = [normalize_ws(l) for l in texto_cliente.splitlines() if normalize_ws(l)]
         candidatos = []
         for l in linhas:
             l_up = l.upper()
-            if any(chave in l_up for chave in ["CNPJ", "CPF", "INSCRI", "CEP", "ENDERE", "FONE"]):
+            if any(chave in l_up for chave in ["CNPJ", "CPF", "INSCRI", "CEP", "ENDERE", "FONE", "TELEFONE"]):
                 continue
-            if len(l) >= 8 and len(l) <= 120:
+            if 8 <= len(l) <= 140:
                 candidatos.append(l)
         if candidatos:
             nome_cliente = candidatos[0]
 
     cnpj_cliente = buscar_primeiro(
-        texto_dest,
+        texto_cliente,
         [
             r"(?:CNPJ|CPF\/CNPJ)\s*[:\-]?\s*([\d./-]{11,18})",
             r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",
+            r"\b(\d{14})\b",
         ],
     )
 
     endereco_cliente = buscar_primeiro(
-        texto_dest,
+        texto_cliente,
         [
             r"ENDERE[ÇC]O\s*[:\-]?\s*([^\n\r]+)",
             r"LOGRADOURO\s*[:\-]?\s*([^\n\r]+)",
+            r"RUA\s*[:\-]?\s*([^\n\r]+)",
+            r"AVENIDA\s*[:\-]?\s*([^\n\r]+)",
         ],
     )
 
     if not endereco_cliente:
-        linhas = [normalize_ws(l) for l in texto_dest.splitlines() if normalize_ws(l)]
-        for i, l in enumerate(linhas):
+        linhas = [normalize_ws(l) for l in texto_cliente.splitlines() if normalize_ws(l)]
+        for l in linhas:
             l_up = l.upper()
             if any(term in l_up for term in ["RUA ", "AV ", "AVENIDA ", "RODOVIA ", "ESTRADA ", "ALAMEDA "]):
                 endereco_cliente = l
                 break
 
     quantidade_caixas = buscar_primeiro(
-        texto_transp,
+        texto_transp or texto_global,
         [
-            r"(?:QTD|QUANTIDADE|VOLUME(?:S)?)\s*(?:DE\s*VOLUMES)?\s*[:\-]?\s*(\d+)",
+            r"(?:QTD|QTDE|QUANTIDADE|VOLUME(?:S)?|CAIXA(?:S)?)\s*(?:DE\s*VOLUMES|DE\s*CAIXAS)?\s*[:\-]?\s*(\d+)",
+            r"(?:TOTAL\s*DE\s*VOLUMES|TOTAL\s*DE\s*CAIXAS)\s*[:\-]?\s*(\d+)",
             r"VOLUMES?\s*[:\-]?\s*(\d+)",
+            r"CAIXAS?\s*[:\-]?\s*(\d+)",
+            r"VOLUME\s*[:\-]?\s*(\d+)",
         ],
     )
 
     peso = buscar_primeiro(
-        texto_transp,
+        texto_transp or texto_global,
         [
-            r"PESO\s*(?:BRUTO|B)\s*[:\-]?\s*([\d.,]+)",
+            r"PESO\s*(?:BRUTO|B|TOTAL)\s*[:\-]?\s*([\d.,]+)",
             r"PESO\s*(?:L[IÍ]QUIDO|L)\s*[:\-]?\s*([\d.,]+)",
-            r"\b([\d.,]+)\s*(?:KG|KGS)\b",
+            r"(?:KG|KGS)\s*[:\-]?\s*([\d.,]+)",
+            r"([\d.,]+)\s*(?:KG|KGS)\b",
         ],
     )
 
@@ -494,6 +528,7 @@ def extrair_campos_nf_por_blocos(file_bytes):
         [
             r"FRETE\s*POR\s*CONTA\s*[:\-]?\s*([^\n\r]+)",
             r"MODALIDADE\s*DO\s*FRETE\s*[:\-]?\s*([^\n\r]+)",
+            r"TIPO\s*DE\s*FRETE\s*[:\-]?\s*([^\n\r]+)",
             r"FRETE\s*[:\-]?\s*([^\n\r]+)",
         ],
     )
@@ -513,7 +548,10 @@ def extrair_campos_nf_por_blocos(file_bytes):
         [
             r"VALOR TOTAL DA NOTA\s*[:\s]*([\d.,]+)",
             r"TOTAL DA NOTA\s*[:\s]*([\d.,]+)",
-            r"V[.]?\s*TOTAL\s*[:\s]*([\d.,]+)",
+            r"TOTAL GERAL\s*[:\s]*([\d.,]+)",
+            r"TOT[.]?\s*LIQUIDO\s*[:\s]*([\d.,]+)",
+            r"TOT[.]?\s*L[IÍ]QUIDO\s*[:\s]*([\d.,]+)",
+            r"VALOR TOTAL\s*[:\s]*([\d.,]+)",
         ],
     )
 
@@ -521,6 +559,7 @@ def extrair_campos_nf_por_blocos(file_bytes):
         texto_transp,
         [
             r"TRANSPORTADORA\s*[:\-]?\s*([^\n\r]+)",
+            r"TRANSPORTADOR(?:A)?\s*[:\-]?\s*([^\n\r]+)",
             r"RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
         ],
     )
@@ -530,6 +569,7 @@ def extrair_campos_nf_por_blocos(file_bytes):
         [
             r"(?:CNPJ|CNPJ\/CPF)\s*[:\-]?\s*([\d./-]{11,18})",
             r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",
+            r"\b(\d{14})\b",
         ],
     )
 
@@ -537,6 +577,7 @@ def extrair_campos_nf_por_blocos(file_bytes):
         texto_transp,
         [
             r"INSCRI[ÇC][AÃ]O ESTADUAL\s*[:\-]?\s*([0-9A-Za-z./-]+)",
+            r"\bIE\s*[:\-]?\s*([0-9A-Za-z./-]+)",
         ],
     )
 
@@ -549,12 +590,14 @@ def extrair_campos_nf_por_blocos(file_bytes):
     )
 
     diagnostico = {
-        "ancora_dest_encontrada": bool(ancora_dest),
+        "tipo_documento": tipo_documento,
+        "ancora_cliente_encontrada": bool(ancora_cliente),
         "ancora_transp_encontrada": bool(ancora_transp),
         "ancora_total_encontrada": bool(ancora_total),
         "ancora_frete_encontrada": bool(ancora_frete),
-        "texto_dest_len": len(texto_dest),
+        "texto_cliente_len": len(texto_cliente),
         "texto_transp_len": len(texto_transp),
+        "blocos_total": len(blocos),
     }
 
     return {
@@ -573,7 +616,7 @@ def extrair_campos_nf_por_blocos(file_bytes):
             "transportadora_endereco": normalize_ws(transportadora_endereco),
         },
         "diagnostico": diagnostico,
-        "texto_dest": texto_dest,
+        "texto_cliente": texto_cliente,
         "texto_transp": texto_transp,
         "texto_global": texto_global,
     }
@@ -654,97 +697,143 @@ def extrair_dados_xml(xml_file, lado_cliente="emit"):
     }
 
 
-# ========================= RMA / ESPELHOS =========================
-def extrair_valor_total_rma(texto_rma):
+# ========================= ESPELHOS =========================
+def extrair_valor_total_espelho(texto):
     return buscar_primeiro(
-        texto_rma,
+        texto,
         [
             r"Tot[.]?\s*Liquido\(R\$\s*.*?\)\s*[:\-]?\s*([\d.,]+)",
+            r"Tot[.]?\s*L[ií]quido\s*[:\-]?\s*([\d.,]+)",
             r"TOTAL GERAL\s*[:\-]?\s*([\d.,]+)",
+            r"VALOR TOTAL\s*[:\-]?\s*([\d.,]+)",
             r"TOTAL\s*[:\-]?\s*R?\$?\s*([\d.,]+)",
         ],
     )
 
 
-def extrair_campos_rma_psd(texto_rma):
-    frete_raw = buscar_primeiro(texto_rma, [r"Frete\s*:\s*([^\n\r]+)"])
+def extrair_campos_espelho_psd(texto_espelho):
+    frete_raw = buscar_primeiro(texto_espelho, [r"Frete\s*:\s*([^\n\r]+)"])
+
     return {
-        "nome_cliente": buscar_primeiro(texto_rma, [r"Nome\/Raz[aã]o\s*Social:\s*([^\n\r]+)"]),
+        "nome_cliente": buscar_primeiro(
+            texto_espelho,
+            [
+                r"Nome\/Raz[aã]o\s*Social:\s*([^\n\r]+)",
+                r"Raz[aã]o\s*Social:\s*([^\n\r]+)",
+            ],
+        ),
         "endereco_cliente": buscar_primeiro(
-            texto_rma,
+            texto_espelho,
             [
                 r"Endere[cç]o:\s*(.*?)\s+CEP",
                 r"Endere[cç]o:\s*([^\n\r]+)",
             ],
         ),
-        "cnpj_cliente": buscar_primeiro(texto_rma, [r"CPF\/CNPJ\s*[:\s]*([\d./-]+)"]),
-        "quantidade_caixas": buscar_primeiro(texto_rma, [r"Volume:\s*(\d+)"]),
-        "peso": buscar_primeiro(texto_rma, [r"Peso:\s*([\d.,]+)"]),
+        "cnpj_cliente": buscar_primeiro(
+            texto_espelho,
+            [
+                r"CPF\/CNPJ\s*[:\s]*([\d./-]+)",
+                r"CNPJ\s*[:\s]*([\d./-]+)",
+            ],
+        ),
+        "quantidade_caixas": buscar_primeiro(
+            texto_espelho,
+            [
+                r"Volume:\s*(\d+)",
+                r"Volumes:\s*(\d+)",
+            ],
+        ),
+        "peso": buscar_primeiro(
+            texto_espelho,
+            [
+                r"Peso:\s*([\d.,]+)",
+                r"Peso Total:\s*([\d.,]+)",
+            ],
+        ),
         "frete": normalizar_frete(frete_raw),
-        "cfop": buscar_primeiro(texto_rma, [r"CFOP:\s*(\d{4})"]),
-        "valor_total": extrair_valor_total_rma(texto_rma),
-        "transportadora_razao": buscar_primeiro(texto_rma, [r"Transportadora:\s*([^\n\r]+)"]),
+        "cfop": buscar_primeiro(texto_espelho, [r"CFOP:\s*(\d{4})"]),
+        "valor_total": extrair_valor_total_espelho(texto_espelho),
+        "transportadora_razao": buscar_primeiro(
+            texto_espelho,
+            [
+                r"Transportadora:\s*([^\n\r]+)",
+                r"Transportador(?:a)?\s*:\s*([^\n\r]+)",
+            ],
+        ),
     }
 
 
-def extrair_campos_rma_marca_a(texto_rma):
-    # Ajuste futuro conforme o espelho real da marca A
-    return extrair_campos_rma_psd(texto_rma)
+def extrair_campos_espelho_flexivel(file_bytes, tipo_espelho="MARCA_A"):
+    resultado = extrair_campos_documento_flexivel(file_bytes, tipo_documento=f"ESPELHO_{tipo_espelho}")
+    return resultado
 
 
-def extrair_campos_rma_marca_b(texto_rma):
-    # Ajuste futuro conforme o espelho real da marca B
-    return extrair_campos_rma_psd(texto_rma)
-
-
-def extrair_campos_rma(texto_rma, tipo_espelho):
+def extrair_campos_espelho(texto_espelho, file_bytes, tipo_espelho):
     if tipo_espelho == "PSD":
-        return extrair_campos_rma_psd(texto_rma)
-    if tipo_espelho == "MARCA_A":
-        return extrair_campos_rma_marca_a(texto_rma)
-    if tipo_espelho == "MARCA_B":
-        return extrair_campos_rma_marca_b(texto_rma)
-    return extrair_campos_rma_psd(texto_rma)
+        return {
+            "campos": extrair_campos_espelho_psd(texto_espelho),
+            "diagnostico": {
+                "tipo_documento": "ESPELHO_PSD",
+                "modo": "rigido",
+            },
+            "texto_cliente": "",
+            "texto_transp": "",
+            "texto_global": texto_espelho,
+        }
+
+    if tipo_espelho in {"MARCA_A", "MARCA_B"}:
+        return extrair_campos_espelho_flexivel(file_bytes, tipo_espelho=tipo_espelho)
+
+    return {
+        "campos": extrair_campos_espelho_psd(texto_espelho),
+        "diagnostico": {
+            "tipo_documento": "ESPELHO_DEFAULT",
+            "modo": "rigido",
+        },
+        "texto_cliente": "",
+        "texto_transp": "",
+        "texto_global": texto_espelho,
+    }
 
 
 # ========================= COMPARAÇÃO =========================
-def comparar_campo(campo, v_nf, v_rma):
+def comparar_campo(campo, v_nf, v_espelho):
     v_nf_norm = normalize_ws(v_nf)
-    v_rma_norm = normalize_ws(v_rma)
+    v_espelho_norm = normalize_ws(v_espelho)
 
-    if not v_nf_norm and not v_rma_norm:
+    if not v_nf_norm and not v_espelho_norm:
         return None, "Nao encontrado nos dois arquivos."
     if not v_nf_norm:
         return False, "Campo ausente na NF/XML."
-    if not v_rma_norm:
-        return False, "Campo ausente na RMA."
+    if not v_espelho_norm:
+        return False, "Campo ausente no espelho."
 
     if campo in {"valor_total", "peso"}:
         n_nf = parse_num(v_nf_norm)
-        n_rma = parse_num(v_rma_norm)
-        if n_nf is None or n_rma is None:
+        n_espelho = parse_num(v_espelho_norm)
+        if n_nf is None or n_espelho is None:
             return False, "Nao foi possivel converter numero."
         tolerancia = 0.99 if campo == "valor_total" else 0.05
-        ok = abs(n_nf - n_rma) <= tolerancia
-        return ok, f"NF={n_nf:.2f} | RMA={n_rma:.2f} | tol={tolerancia}"
+        ok = abs(n_nf - n_espelho) <= tolerancia
+        return ok, f"NF={n_nf:.2f} | Espelho={n_espelho:.2f} | tol={tolerancia}"
 
     if campo == "cnpj_cliente":
-        ok = only_digits(v_nf_norm) == only_digits(v_rma_norm)
+        ok = only_digits(v_nf_norm) == only_digits(v_espelho_norm)
         return ok, "Comparacao por CNPJ normalizado."
 
     if campo in {"cfop", "quantidade_caixas"}:
-        ok = only_digits(v_nf_norm) == only_digits(v_rma_norm)
+        ok = only_digits(v_nf_norm) == only_digits(v_espelho_norm)
         return ok, "Comparacao numerica exata."
 
     if campo == "frete":
-        ok = normalizar_frete(v_nf_norm) == normalizar_frete(v_rma_norm)
+        ok = normalizar_frete(v_nf_norm) == normalizar_frete(v_espelho_norm)
         return ok, "Comparacao por modalidade de frete."
 
     limiar = 0.85
     if campo == "endereco_cliente":
         limiar = 0.75
 
-    ratio = similaridade(v_nf_norm, v_rma_norm)
+    ratio = similaridade(v_nf_norm, v_espelho_norm)
     return ratio >= limiar, f"Similaridade={ratio:.2f}, limiar={limiar:.2f}"
 
 
@@ -759,7 +848,7 @@ def validar_transportadora_catalogo(dados_nf):
             {
                 "Campo": "Transportadora Catalogo",
                 "Valor NF": "-",
-                "Valor RMA": "-",
+                "Valor Espelho": "-",
                 "Status": None,
                 "Detalhe": "Transportadora nao encontrada na NF/XML.",
             }
@@ -784,7 +873,7 @@ def validar_transportadora_catalogo(dados_nf):
             {
                 "Campo": "Transportadora Catalogo",
                 "Valor NF": nome_nf or cnpj_nf or "-",
-                "Valor RMA": "-",
+                "Valor Espelho": "-",
                 "Status": False,
                 "Detalhe": "Nenhuma transportadora base com confianca minima.",
             }
@@ -796,7 +885,7 @@ def validar_transportadora_catalogo(dados_nf):
     rows.append({
         "Campo": "Transportadora Razao (Base)",
         "Valor NF": nome_nf or "-",
-        "Valor RMA": melhor_base["razao_social"],
+        "Valor Espelho": melhor_base["razao_social"],
         "Status": score_razao >= 0.80,
         "Detalhe": f"Melhor base: {melhor_nome}, similaridade={score_razao:.2f}",
     })
@@ -805,7 +894,7 @@ def validar_transportadora_catalogo(dados_nf):
     rows.append({
         "Campo": "Transportadora CNPJ (Base)",
         "Valor NF": cnpj_nf or "-",
-        "Valor RMA": cnpj_base,
+        "Valor Espelho": cnpj_base,
         "Status": cnpj_nf == cnpj_base if cnpj_nf else None,
         "Detalhe": "Comparacao por CNPJ normalizado.",
     })
@@ -814,7 +903,7 @@ def validar_transportadora_catalogo(dados_nf):
     rows.append({
         "Campo": "Transportadora IE (Base)",
         "Valor NF": ie_nf or "-",
-        "Valor RMA": ie_base or "-",
+        "Valor Espelho": ie_base or "-",
         "Status": ie_nf == ie_base if (ie_nf and ie_base) else None,
         "Detalhe": "Comparacao por IE normalizada.",
     })
@@ -823,7 +912,7 @@ def validar_transportadora_catalogo(dados_nf):
     rows.append({
         "Campo": "Transportadora Endereco (Base)",
         "Valor NF": endereco_nf or "-",
-        "Valor RMA": melhor_base["endereco"],
+        "Valor Espelho": melhor_base["endereco"],
         "Status": score_end >= 0.75 if endereco_nf else None,
         "Detalhe": f"Similaridade endereco={score_end:.2f}",
     })
@@ -831,17 +920,17 @@ def validar_transportadora_catalogo(dados_nf):
     return rows
 
 
-def analisar_dados(dados_nf, dados_rma):
+def analisar_dados(dados_nf, dados_espelho):
     rows = []
 
     for campo in CAMPOS_COMPARACAO:
         v_nf = dados_nf.get(campo, "")
-        v_rma = dados_rma.get(campo, "")
-        ok, detalhe = comparar_campo(campo, v_nf, v_rma)
+        v_espelho = dados_espelho.get(campo, "")
+        ok, detalhe = comparar_campo(campo, v_nf, v_espelho)
         rows.append({
             "Campo": formatar_campo(campo),
             "Valor NF": normalize_ws(v_nf) or "-",
-            "Valor RMA": normalize_ws(v_rma) or "-",
+            "Valor Espelho": normalize_ws(v_espelho) or "-",
             "Status": ok,
             "Detalhe": detalhe,
         })
@@ -851,13 +940,14 @@ def analisar_dados(dados_nf, dados_rma):
 
 
 # ========================= STREAMLIT =========================
-st.title("Verificador de Nota Fiscal x RMA - V3")
-st.caption("Leitura da NF por blocos + âncoras, com XML prioritario e estrutura pronta para varios espelhos.")
+st.title("Verificador NF x Espelho - V4")
+st.caption("PSD rígido. Marca A e Marca B flexíveis por blocos + âncoras. XML continua prioritário para NF.")
 
 with st.sidebar:
-    st.subheader("Configuracoes")
+    st.subheader("Configurações")
     tipo_espelho = st.selectbox("Tipo de espelho / marca", TIPOS_ESPELHO)
-    usar_ocr_nf = st.checkbox("Permitir OCR na NF quando necessario", value=True)
+    usar_ocr_nf = st.checkbox("Permitir OCR na NF quando necessário", value=True)
+    usar_ocr_espelho = st.checkbox("Permitir OCR no espelho quando necessário", value=False)
     lado_cliente_xml = st.selectbox(
         "Lado do cliente no XML",
         ["emit", "dest"],
@@ -869,15 +959,18 @@ col1, col2, col3 = st.columns(3)
 with col1:
     nf_file = st.file_uploader("Enviar Nota Fiscal (PDF)", type=["pdf"])
 with col2:
-    rma_file = st.file_uploader("Enviar RMA / Espelho (PDF)", type=["pdf"])
+    espelho_file = st.file_uploader("Enviar Espelho / RMA (PDF)", type=["pdf"])
 with col3:
     xml_file = st.file_uploader("Enviar XML da NF-e", type=["xml"])
 
-if rma_file:
-    rma_bytes = rma_file.read()
-    info_rma = extrair_texto_pdf_inteligente(rma_bytes, permitir_ocr=False)
-    texto_rma = info_rma["texto"]
-    dados_rma = extrair_campos_rma(texto_rma, tipo_espelho)
+if espelho_file:
+    espelho_bytes = espelho_file.read()
+    info_espelho = extrair_texto_pdf_inteligente(espelho_bytes, permitir_ocr=usar_ocr_espelho)
+    texto_espelho = info_espelho["texto"]
+
+    resultado_espelho = extrair_campos_espelho(texto_espelho, espelho_bytes, tipo_espelho)
+    dados_espelho = resultado_espelho["campos"]
+    debug_espelho = resultado_espelho
 
     nf_bytes = nf_file.read() if nf_file else None
     dados_nf = None
@@ -889,7 +982,7 @@ if rma_file:
         try:
             dados_nf = extrair_dados_xml(xml_file, lado_cliente=lado_cliente_xml)
             origem_nf = f"XML ({lado_cliente_xml})"
-            diagnostico_nf = "Dados da NF extraidos via XML."
+            diagnostico_nf = "Dados da NF extraídos via XML."
         except Exception as exc:
             st.error(f"Falha ao ler XML: {exc}")
             st.stop()
@@ -898,14 +991,14 @@ if rma_file:
         info_nf = extrair_texto_pdf_inteligente(nf_bytes, permitir_ocr=usar_ocr_nf)
 
         try:
-            resultado_blocos = extrair_campos_nf_por_blocos(nf_bytes)
-            dados_nf_blocos = resultado_blocos["campos"]
-            debug_nf_blocos = resultado_blocos
+            resultado_nf = extrair_campos_documento_flexivel(nf_bytes, tipo_documento="NF")
+            dados_nf_blocos = resultado_nf["campos"]
+            debug_nf_blocos = resultado_nf
         except Exception as exc:
             dados_nf_blocos = {}
             debug_nf_blocos = {
                 "diagnostico": {"erro_blocos": str(exc)},
-                "texto_dest": "",
+                "texto_cliente": "",
                 "texto_transp": "",
                 "texto_global": info_nf["texto"],
             }
@@ -918,20 +1011,23 @@ if rma_file:
             "cnpj_cliente": buscar_primeiro(info_nf["texto"], [
                 r"(?:CNPJ|CPF\/CNPJ)\s*[:\-]?\s*([\d./-]{11,18})",
                 r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",
+                r"\b(\d{14})\b",
             ]),
             "endereco_cliente": buscar_primeiro(info_nf["texto"], [
                 r"ENDERE[ÇC]O\s*[:\-]?\s*([^\n\r]+)"
             ]),
             "quantidade_caixas": buscar_primeiro(info_nf["texto"], [
-                r"(?:QTD|QUANTIDADE|VOLUME(?:S)?)\s*[:\-]?\s*(\d+)"
+                r"(?:QTD|QTDE|QUANTIDADE|VOLUME(?:S)?|CAIXA(?:S)?)\s*(?:DE\s*VOLUMES|DE\s*CAIXAS)?\s*[:\-]?\s*(\d+)"
             ]),
             "peso": buscar_primeiro(info_nf["texto"], [
-                r"PESO\s*(?:BRUTO|B)\s*[:\-]?\s*([\d.,]+)",
-                r"PESO\s*(?:L[IÍ]QUIDO|L)\s*[:\-]?\s*([\d.,]+)"
+                r"PESO\s*(?:BRUTO|B|TOTAL)\s*[:\-]?\s*([\d.,]+)",
+                r"PESO\s*(?:L[IÍ]QUIDO|L)\s*[:\-]?\s*([\d.,]+)",
+                r"([\d.,]+)\s*(?:KG|KGS)\b",
             ]),
             "frete": normalizar_frete(buscar_primeiro(info_nf["texto"], [
                 r"FRETE\s*POR\s*CONTA\s*[:\-]?\s*([^\n\r]+)",
-                r"MODALIDADE\s*DO\s*FRETE\s*[:\-]?\s*([^\n\r]+)"
+                r"MODALIDADE\s*DO\s*FRETE\s*[:\-]?\s*([^\n\r]+)",
+                r"TIPO\s*DE\s*FRETE\s*[:\-]?\s*([^\n\r]+)",
             ])),
             "cfop": buscar_primeiro(info_nf["texto"], [
                 r"\bCFOP\s*[:\-]?\s*(\d{4})\b",
@@ -939,14 +1035,16 @@ if rma_file:
             ]),
             "valor_total": buscar_primeiro(info_nf["texto"], [
                 r"VALOR TOTAL DA NOTA\s*[:\s]*([\d.,]+)",
-                r"TOTAL DA NOTA\s*[:\s]*([\d.,]+)"
+                r"TOTAL DA NOTA\s*[:\s]*([\d.,]+)",
+                r"TOTAL GERAL\s*[:\s]*([\d.,]+)",
             ]),
             "transportadora_razao": buscar_primeiro(info_nf["texto"], [
                 r"TRANSPORTADORA\s*[:\-]?\s*([^\n\r]+)",
                 r"RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)"
             ]),
             "transportadora_cnpj": buscar_primeiro(info_nf["texto"], [
-                r"(?:CNPJ|CNPJ\/CPF)\s*[:\-]?\s*([\d./-]{11,18})"
+                r"(?:CNPJ|CNPJ\/CPF)\s*[:\-]?\s*([\d./-]{11,18})",
+                r"\b(\d{14})\b",
             ]),
             "transportadora_ie": buscar_primeiro(info_nf["texto"], [
                 r"INSCRI[ÇC][AÃ]O ESTADUAL\s*[:\-]?\s*([0-9A-Za-z./-]+)"
@@ -979,43 +1077,51 @@ if rma_file:
         diagnostico_nf = info_nf["observacao"]
 
     else:
-        st.info("Envie a NF em PDF ou o XML para iniciar a verificacao.")
+        st.info("Envie a NF em PDF ou o XML para iniciar a verificação.")
         st.stop()
 
-    st.markdown("### Diagnostico de leitura")
-    st.write(f"- RMA: fonte={info_rma['fonte']}, score={info_rma['score']}.")
+    st.markdown("### Diagnóstico de leitura")
+    st.write(f"- Espelho: fonte={info_espelho['fonte']}, score={info_espelho['score']}, tipo={tipo_espelho}.")
     st.write(f"- NF: origem={origem_nf}. {diagnostico_nf}")
 
     if debug_nf_blocos:
-        diag = debug_nf_blocos.get("diagnostico", {})
-        with st.expander("Debug da leitura por blocos"):
-            st.json(diag)
+        with st.expander("Debug da leitura da NF por blocos"):
+            st.json(debug_nf_blocos.get("diagnostico", {}))
 
-    df = analisar_dados(dados_nf, dados_rma)
+    with st.expander("Debug da leitura do espelho"):
+        st.json(debug_espelho.get("diagnostico", {}))
+
+    df = analisar_dados(dados_nf, dados_espelho)
     df["Status"] = df["Status"].apply(label_status)
 
-    st.markdown(f"### Comparacao dos dados (origem da NF: {origem_nf})")
+    st.markdown(f"### Comparação dos dados (origem da NF: {origem_nf})")
     st.dataframe(df, use_container_width=True)
 
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button(
-        "Baixar relatorio CSV",
+        "Baixar relatório CSV",
         data=csv,
-        file_name="comparacao_nf_rma_v3.csv",
+        file_name="comparacao_nf_espelho_v4.csv",
     )
 
-    with st.expander("Campos extraidos da NF / XML"):
+    with st.expander("Campos extraídos da NF / XML"):
         st.json(dados_nf)
 
-    with st.expander("Campos extraidos da RMA / Espelho"):
-        st.json(dados_rma)
+    with st.expander("Campos extraídos do Espelho"):
+        st.json(dados_espelho)
 
     if debug_nf_blocos:
-        with st.expander("Texto capturado na area do DESTINATARIO / REMETENTE"):
-            st.text(debug_nf_blocos.get("texto_dest", ""))
+        with st.expander("Texto capturado na área do cliente da NF"):
+            st.text(debug_nf_blocos.get("texto_cliente", ""))
 
-        with st.expander("Texto capturado na area do TRANSPORTE"):
+        with st.expander("Texto capturado na área do transporte da NF"):
             st.text(debug_nf_blocos.get("texto_transp", ""))
+
+    with st.expander("Texto capturado na área do cliente do espelho"):
+        st.text(debug_espelho.get("texto_cliente", ""))
+
+    with st.expander("Texto capturado na área do transporte do espelho"):
+        st.text(debug_espelho.get("texto_transp", ""))
 
     guide_url = "https://raw.githubusercontent.com/Brayan-GBL/Controle/main/NFXRMA.jpg"
     st.markdown("---")
@@ -1024,7 +1130,7 @@ if rma_file:
 
     st.markdown("---")
     st.subheader("Visualizar PDFs")
-    col_nf_prev, col_rma_prev = st.columns(2)
+    col_nf_prev, col_esp_prev = st.columns(2)
 
     with col_nf_prev:
         st.markdown("**Nota Fiscal**")
@@ -1032,12 +1138,12 @@ if rma_file:
             for img in renderizar_paginas_para_preview(nf_bytes, n_paginas=3):
                 st.image(img, use_container_width=True)
         else:
-            st.info("Preview da NF indisponivel quando apenas o XML e enviado.")
+            st.info("Preview da NF indisponível quando apenas o XML é enviado.")
 
-    with col_rma_prev:
-        st.markdown("**RMA / Espelho**")
-        for img in renderizar_paginas_para_preview(rma_bytes, n_paginas=3):
+    with col_esp_prev:
+        st.markdown("**Espelho / RMA**")
+        for img in renderizar_paginas_para_preview(espelho_bytes, n_paginas=3):
             st.image(img, use_container_width=True)
 
 else:
-    st.info("Envie ao menos a RMA / Espelho para iniciar a verificacao.")
+    st.info("Envie ao menos o espelho / RMA para iniciar a verificação.")
