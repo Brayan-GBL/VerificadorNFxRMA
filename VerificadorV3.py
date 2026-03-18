@@ -1,4 +1,5 @@
 import re
+import unicodedata
 import xml.etree.ElementTree as ET
 from difflib import SequenceMatcher
 from io import BytesIO
@@ -84,6 +85,12 @@ TIPOS_ESPELHO = ["PSD", "OUTRAS MARCAS"]
 # ========================= HELPERS =========================
 def normalize_ws(texto):
     return re.sub(r"\s+", " ", str(texto or "")).strip()
+
+
+def normalize_fold(texto):
+    txt = normalize_ws(texto).upper()
+    txt = unicodedata.normalize("NFKD", txt)
+    return "".join(ch for ch in txt if not unicodedata.combining(ch))
 
 
 def only_digits(texto):
@@ -465,7 +472,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     texto_cliente_ref = texto_cliente
 
     if usar_emitente_outras_marcas:
-        corte_dest = re.search(r"DESTINAT[ÃA]RIO|DESTINATARIO", texto_cliente_ref, flags=re.IGNORECASE)
+        corte_dest = re.search(r"DESTINAT(?:ARIO|ÁRIO|ÃRIO)", texto_cliente_ref, flags=re.IGNORECASE)
         if corte_dest:
             texto_cliente_ref = texto_cliente_ref[:corte_dest.start()]
 
@@ -486,10 +493,20 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
         linhas = [normalize_ws(l) for l in texto_cliente_ref.splitlines() if normalize_ws(l)]
         candidatos = []
         for l in linhas:
-            l_up = l.upper()
+            l_up = normalize_fold(l)
             termos_ignorar = ["CNPJ", "CPF", "INSCRI", "CEP", "ENDERE", "FONE", "TELEFONE"]
             if usar_emitente_outras_marcas:
-                termos_ignorar.extend(["IDENTIFIC", "EMITENTE", "INFORMAC", "NATUREZA", "DESTINAT", "MUNICIP", "BAIRRO"])
+                termos_ignorar.extend([
+                    "IDENTIFIC",
+                    "EMITENTE",
+                    "INFORMACO",
+                    "DEVOLUCAO",
+                    "NATUREZA",
+                    "DESTINAT",
+                    "MUNICIP",
+                    "BAIRRO",
+                    "INSCRICAO",
+                ])
             if any(chave in l_up for chave in termos_ignorar):
                 continue
             if 8 <= len(l) <= 140:
@@ -975,7 +992,7 @@ st.title("Verificador NF x Espelho - V4")
 st.caption("Comparacao automatica de NF x Espelho. XML da NF priorizado quando enviado.")
 
 with st.sidebar:
-    st.subheader("Configuracoes")
+    st.subheader("Configurações")
     tipo_espelho = st.selectbox("Tipo de espelho / marca", TIPOS_ESPELHO)
     usar_ocr_nf = True
     usar_ocr_espelho = False
@@ -1007,7 +1024,7 @@ if espelho_file:
         try:
             dados_nf = extrair_dados_xml(xml_file, lado_cliente=lado_cliente_xml)
             origem_nf = "XML"
-            diagnostico_nf = "Dados da NF extraÃ­dos via XML."
+            diagnostico_nf = "Dados da NF extraídos via XML."
         except Exception as exc:
             st.error(f"Falha ao ler XML: {exc}")
             st.stop()
@@ -1102,7 +1119,7 @@ if espelho_file:
         diagnostico_nf = info_nf["observacao"]
 
     else:
-        st.info("Envie a NF em PDF ou o XML para iniciar a verificaÃ§Ã£o.")
+        st.info("Envie a NF em PDF ou o XML para iniciar a verificação.")
         st.stop()
     df = analisar_dados(dados_nf, dados_espelho)
     df["Status"] = df["Status"].apply(label_status)
@@ -1112,7 +1129,7 @@ if espelho_file:
 
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button(
-        "Baixar relatÃ³rio CSV",
+        "Baixar relatório CSV",
         data=csv,
         file_name="comparacao_nf_espelho_v4.csv",
     )
@@ -1132,7 +1149,7 @@ if espelho_file:
             for img in renderizar_paginas_para_preview(nf_bytes, n_paginas=3):
                 st.image(img, use_container_width=True)
         else:
-            st.info("Preview da NF indisponÃ­vel quando apenas o XML Ã© enviado.")
+            st.info("Preview da NF indisponível quando apenas o XML é enviado.")
 
     with col_esp_prev:
         st.markdown("**Espelho / RMA**")
@@ -1140,5 +1157,5 @@ if espelho_file:
             st.image(img, use_container_width=True)
 
 else:
-    st.info("Envie ao menos o espelho / RMA para iniciar a verificaÃ§Ã£o.")
+    st.info("Envie ao menos o espelho / RMA para iniciar a verificação.")
 
