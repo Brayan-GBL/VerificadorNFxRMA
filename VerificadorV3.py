@@ -390,24 +390,36 @@ def texto_total_blocos(blocos):
 def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     blocos = extrair_blocos_pdf(file_bytes)
     texto_global = texto_total_blocos(blocos)
+    tipo_documento_up = normalize_ws(tipo_documento).upper()
+    usar_emitente_outras_marcas = ("ESPELHO" in tipo_documento_up and "OUTRAS" in tipo_documento_up)
+
+    termos_cliente = [
+        "DESTINATARIO",
+        "DESTINATÃRIO",
+        "REMETENTE",
+        "DADOS DO DESTINATARIO",
+        "DADOS DO DESTINATÃRIO",
+        "DESTINATARIO / REMETENTE",
+        "DESTINATÃRIO / REMETENTE",
+        "NOME/RAZAO SOCIAL",
+        "NOME/RAZÃƒO SOCIAL",
+        "NOME / RAZAO SOCIAL",
+        "NOME / RAZÃƒO SOCIAL",
+        "CLIENTE",
+        "SACADO",
+    ]
+    if usar_emitente_outras_marcas:
+        termos_cliente = [
+            "IDENTIFICACAO DO EMITENTE",
+            "IDENTIFICAÇÃO DO EMITENTE",
+            "INFORMACOES PARA NF-E DE DEVOLUCAO",
+            "INFORMAÇÕES PARA NF-E DE DEVOLUÇÃO",
+            "EMITENTE",
+        ] + termos_cliente
 
     ancora_cliente = selecionar_melhor_ancora(
         blocos,
-        [
-            "DESTINATARIO",
-            "DESTINATÃRIO",
-            "REMETENTE",
-            "DADOS DO DESTINATARIO",
-            "DADOS DO DESTINATÃRIO",
-            "DESTINATARIO / REMETENTE",
-            "DESTINATÃRIO / REMETENTE",
-            "NOME/RAZAO SOCIAL",
-            "NOME/RAZÃƒO SOCIAL",
-            "NOME / RAZAO SOCIAL",
-            "NOME / RAZÃƒO SOCIAL",
-            "CLIENTE",
-            "SACADO",
-        ],
+        termos_cliente,
     )
 
     ancora_transp = selecionar_melhor_ancora(
@@ -450,10 +462,17 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     texto_transp = texto_proximo_da_ancora(blocos, ancora_transp, margem_direita=700, margem_baixo=300)
     texto_total = texto_proximo_da_ancora(blocos, ancora_total, margem_direita=350, margem_baixo=150)
     texto_frete = texto_proximo_da_ancora(blocos, ancora_frete, margem_direita=350, margem_baixo=150)
+    texto_cliente_ref = texto_cliente
+
+    if usar_emitente_outras_marcas:
+        corte_dest = re.search(r"DESTINAT[ÃA]RIO|DESTINATARIO", texto_cliente_ref, flags=re.IGNORECASE)
+        if corte_dest:
+            texto_cliente_ref = texto_cliente_ref[:corte_dest.start()]
 
     nome_cliente = buscar_primeiro(
-        texto_cliente,
+        texto_cliente_ref,
         [
+            r"EMITENTE\s*[:\-]?\s*([^\n\r]+)",
             r"NOME\s*/?\s*RAZ[AÃƒ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
             r"RAZ[AÃƒ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
             r"CLIENTE\s*[:\-]?\s*([^\n\r]+)",
@@ -464,11 +483,14 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     )
 
     if not nome_cliente:
-        linhas = [normalize_ws(l) for l in texto_cliente.splitlines() if normalize_ws(l)]
+        linhas = [normalize_ws(l) for l in texto_cliente_ref.splitlines() if normalize_ws(l)]
         candidatos = []
         for l in linhas:
             l_up = l.upper()
-            if any(chave in l_up for chave in ["CNPJ", "CPF", "INSCRI", "CEP", "ENDERE", "FONE", "TELEFONE"]):
+            termos_ignorar = ["CNPJ", "CPF", "INSCRI", "CEP", "ENDERE", "FONE", "TELEFONE"]
+            if usar_emitente_outras_marcas:
+                termos_ignorar.extend(["IDENTIFIC", "EMITENTE", "INFORMAC", "NATUREZA", "DESTINAT", "MUNICIP", "BAIRRO"])
+            if any(chave in l_up for chave in termos_ignorar):
                 continue
             if 8 <= len(l) <= 140:
                 candidatos.append(l)
@@ -476,16 +498,25 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
             nome_cliente = candidatos[0]
 
     cnpj_cliente = buscar_primeiro(
-        texto_cliente,
+        texto_cliente_ref,
         [
             r"(?:CNPJ|CPF\/CNPJ)\s*[:\-]?\s*([\d./-]{11,18})",
             r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",
             r"\b(\d{14})\b",
         ],
     )
+    if usar_emitente_outras_marcas and not cnpj_cliente:
+        cnpj_cliente = buscar_primeiro(
+            texto_global,
+            [
+                r"(?:CNPJ|CPF\/CNPJ)\s*[:\-]?\s*([\d./-]{11,18})",
+                r"\b(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})\b",
+                r"\b(\d{14})\b",
+            ],
+        )
 
     endereco_cliente = buscar_primeiro(
-        texto_cliente,
+        texto_cliente_ref,
         [
             r"ENDERE[Ã‡C]O\s*[:\-]?\s*([^\n\r]+)",
             r"LOGRADOURO\s*[:\-]?\s*([^\n\r]+)",
@@ -495,7 +526,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     )
 
     if not endereco_cliente:
-        linhas = [normalize_ws(l) for l in texto_cliente.splitlines() if normalize_ws(l)]
+        linhas = [normalize_ws(l) for l in texto_cliente_ref.splitlines() if normalize_ws(l)]
         for l in linhas:
             l_up = l.upper()
             if any(term in l_up for term in ["RUA ", "AV ", "AVENIDA ", "RODOVIA ", "ESTRADA ", "ALAMEDA "]):
@@ -1076,7 +1107,7 @@ if espelho_file:
     df = analisar_dados(dados_nf, dados_espelho)
     df["Status"] = df["Status"].apply(label_status)
 
-    st.markdown(f"### ComparaÃ§Ã£o dos dados (origem da NF: {origem_nf})")
+    st.markdown(f"### Comparação dos dados (origem da NF: {origem_nf})")
     st.dataframe(df, use_container_width=True)
 
     csv = df.to_csv(index=False).encode("utf-8")
