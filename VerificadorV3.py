@@ -78,7 +78,7 @@ CAMPOS_COMPARACAO = [
     "transportadora_razao",
 ]
 
-TIPOS_ESPELHO = ["PSD", "MARCA_A", "MARCA_B"]
+TIPOS_ESPELHO = ["PSD", "OUTRAS MARCAS"]
 
 
 # ========================= HELPERS =========================
@@ -190,7 +190,7 @@ def label_status(ok):
     return "NAO ENCONTRADO"
 
 
-# ========================= EXTRAÇÃO TEXTO PDF =========================
+# ========================= EXTRAÃ‡ÃƒO TEXTO PDF =========================
 def extrair_texto_com_pypdf2(file_bytes):
     try:
         reader = PyPDF2.PdfReader(BytesIO(file_bytes))
@@ -291,7 +291,7 @@ def renderizar_paginas_para_preview(file_bytes, n_paginas=3, dpi=120):
     return imagens
 
 
-# ========================= EXTRAÇÃO POR BLOCOS =========================
+# ========================= EXTRAÃ‡ÃƒO POR BLOCOS =========================
 def extrair_blocos_pdf(file_bytes):
     blocos = []
 
@@ -395,16 +395,16 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
         blocos,
         [
             "DESTINATARIO",
-            "DESTINATÁRIO",
+            "DESTINATÃRIO",
             "REMETENTE",
             "DADOS DO DESTINATARIO",
-            "DADOS DO DESTINATÁRIO",
+            "DADOS DO DESTINATÃRIO",
             "DESTINATARIO / REMETENTE",
-            "DESTINATÁRIO / REMETENTE",
+            "DESTINATÃRIO / REMETENTE",
             "NOME/RAZAO SOCIAL",
-            "NOME/RAZÃO SOCIAL",
+            "NOME/RAZÃƒO SOCIAL",
             "NOME / RAZAO SOCIAL",
-            "NOME / RAZÃO SOCIAL",
+            "NOME / RAZÃƒO SOCIAL",
             "CLIENTE",
             "SACADO",
         ],
@@ -430,7 +430,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
             "TOTAL DA NOTA",
             "TOTAL GERAL",
             "TOT. LIQUIDO",
-            "TOT. LÍQUIDO",
+            "TOT. LÃQUIDO",
             "VALOR TOTAL",
             "TOTAL",
         ],
@@ -454,11 +454,11 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     nome_cliente = buscar_primeiro(
         texto_cliente,
         [
-            r"NOME\s*/?\s*RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
-            r"RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
+            r"NOME\s*/?\s*RAZ[AÃƒ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
+            r"RAZ[AÃƒ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
             r"CLIENTE\s*[:\-]?\s*([^\n\r]+)",
             r"SACADO\s*[:\-]?\s*([^\n\r]+)",
-            r"DESTINAT[ÁA]RIO\s*[:\-]?\s*([^\n\r]+)",
+            r"DESTINAT[ÃA]RIO\s*[:\-]?\s*([^\n\r]+)",
             r"REMETENTE\s*[:\-]?\s*([^\n\r]+)",
         ],
     )
@@ -487,7 +487,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     endereco_cliente = buscar_primeiro(
         texto_cliente,
         [
-            r"ENDERE[ÇC]O\s*[:\-]?\s*([^\n\r]+)",
+            r"ENDERE[Ã‡C]O\s*[:\-]?\s*([^\n\r]+)",
             r"LOGRADOURO\s*[:\-]?\s*([^\n\r]+)",
             r"RUA\s*[:\-]?\s*([^\n\r]+)",
             r"AVENIDA\s*[:\-]?\s*([^\n\r]+)",
@@ -517,7 +517,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
         texto_transp or texto_global,
         [
             r"PESO\s*(?:BRUTO|B|TOTAL)\s*[:\-]?\s*([\d.,]+)",
-            r"PESO\s*(?:L[IÍ]QUIDO|L)\s*[:\-]?\s*([\d.,]+)",
+            r"PESO\s*(?:L[IÃ]QUIDO|L)\s*[:\-]?\s*([\d.,]+)",
             r"(?:KG|KGS)\s*[:\-]?\s*([\d.,]+)",
             r"([\d.,]+)\s*(?:KG|KGS)\b",
         ],
@@ -550,7 +550,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
             r"TOTAL DA NOTA\s*[:\s]*([\d.,]+)",
             r"TOTAL GERAL\s*[:\s]*([\d.,]+)",
             r"TOT[.]?\s*LIQUIDO\s*[:\s]*([\d.,]+)",
-            r"TOT[.]?\s*L[IÍ]QUIDO\s*[:\s]*([\d.,]+)",
+            r"TOT[.]?\s*L[IÃ]QUIDO\s*[:\s]*([\d.,]+)",
             r"VALOR TOTAL\s*[:\s]*([\d.,]+)",
         ],
     )
@@ -560,7 +560,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
         [
             r"TRANSPORTADORA\s*[:\-]?\s*([^\n\r]+)",
             r"TRANSPORTADOR(?:A)?\s*[:\-]?\s*([^\n\r]+)",
-            r"RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
+            r"RAZ[AÃƒ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)",
         ],
     )
 
@@ -576,7 +576,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     transportadora_ie = buscar_primeiro(
         texto_transp,
         [
-            r"INSCRI[ÇC][AÃ]O ESTADUAL\s*[:\-]?\s*([0-9A-Za-z./-]+)",
+            r"INSCRI[Ã‡C][AÃƒ]O ESTADUAL\s*[:\-]?\s*([0-9A-Za-z./-]+)",
             r"\bIE\s*[:\-]?\s*([0-9A-Za-z./-]+)",
         ],
     )
@@ -584,7 +584,7 @@ def extrair_campos_documento_flexivel(file_bytes, tipo_documento="NF"):
     transportadora_endereco = buscar_primeiro(
         texto_transp,
         [
-            r"ENDERE[ÇC]O\s*[:\-]?\s*([^\n\r]+)",
+            r"ENDERE[Ã‡C]O\s*[:\-]?\s*([^\n\r]+)",
             r"LOGRADOURO\s*[:\-]?\s*([^\n\r]+)",
         ],
     )
@@ -703,7 +703,7 @@ def extrair_valor_total_espelho(texto):
         texto,
         [
             r"Tot[.]?\s*Liquido\(R\$\s*.*?\)\s*[:\-]?\s*([\d.,]+)",
-            r"Tot[.]?\s*L[ií]quido\s*[:\-]?\s*([\d.,]+)",
+            r"Tot[.]?\s*L[iÃ­]quido\s*[:\-]?\s*([\d.,]+)",
             r"TOTAL GERAL\s*[:\-]?\s*([\d.,]+)",
             r"VALOR TOTAL\s*[:\-]?\s*([\d.,]+)",
             r"TOTAL\s*[:\-]?\s*R?\$?\s*([\d.,]+)",
@@ -718,15 +718,15 @@ def extrair_campos_espelho_psd(texto_espelho):
         "nome_cliente": buscar_primeiro(
             texto_espelho,
             [
-                r"Nome\/Raz[aã]o\s*Social:\s*([^\n\r]+)",
-                r"Raz[aã]o\s*Social:\s*([^\n\r]+)",
+                r"Nome\/Raz[aÃ£]o\s*Social:\s*([^\n\r]+)",
+                r"Raz[aÃ£]o\s*Social:\s*([^\n\r]+)",
             ],
         ),
         "endereco_cliente": buscar_primeiro(
             texto_espelho,
             [
-                r"Endere[cç]o:\s*(.*?)\s+CEP",
-                r"Endere[cç]o:\s*([^\n\r]+)",
+                r"Endere[cÃ§]o:\s*(.*?)\s+CEP",
+                r"Endere[cÃ§]o:\s*([^\n\r]+)",
             ],
         ),
         "cnpj_cliente": buscar_primeiro(
@@ -763,7 +763,7 @@ def extrair_campos_espelho_psd(texto_espelho):
     }
 
 
-def extrair_campos_espelho_flexivel(file_bytes, tipo_espelho="MARCA_A"):
+def extrair_campos_espelho_flexivel(file_bytes, tipo_espelho="OUTRAS_MARCAS"):
     resultado = extrair_campos_documento_flexivel(file_bytes, tipo_documento=f"ESPELHO_{tipo_espelho}")
     return resultado
 
@@ -781,7 +781,7 @@ def extrair_campos_espelho(texto_espelho, file_bytes, tipo_espelho):
             "texto_global": texto_espelho,
         }
 
-    if tipo_espelho in {"MARCA_A", "MARCA_B"}:
+    if tipo_espelho == "OUTRAS MARCAS":
         return extrair_campos_espelho_flexivel(file_bytes, tipo_espelho=tipo_espelho)
 
     return {
@@ -796,7 +796,7 @@ def extrair_campos_espelho(texto_espelho, file_bytes, tipo_espelho):
     }
 
 
-# ========================= COMPARAÇÃO =========================
+# ========================= COMPARAÃ‡ÃƒO =========================
 def comparar_campo(campo, v_nf, v_espelho):
     v_nf_norm = normalize_ws(v_nf)
     v_espelho_norm = normalize_ws(v_espelho)
@@ -941,20 +941,14 @@ def analisar_dados(dados_nf, dados_espelho):
 
 # ========================= STREAMLIT =========================
 st.title("Verificador NF x Espelho - V4")
-st.caption("PSD rígido. Marca A e Marca B flexíveis por blocos + âncoras. XML continua prioritário para NF.")
+st.caption("Comparacao automatica de NF x Espelho. XML da NF priorizado quando enviado.")
 
 with st.sidebar:
-    st.subheader("Configurações")
+    st.subheader("Configuracoes")
     tipo_espelho = st.selectbox("Tipo de espelho / marca", TIPOS_ESPELHO)
-    usar_ocr_nf = st.checkbox("Permitir OCR na NF quando necessário", value=True)
-    usar_ocr_espelho = st.checkbox("Permitir OCR no espelho quando necessário", value=False)
-    lado_cliente_xml = st.selectbox(
-        "Lado do cliente no XML",
-        ["emit", "dest"],
-        index=0,
-        help="Ajuste conforme a regra do processo da marca.",
-    )
-
+    usar_ocr_nf = True
+    usar_ocr_espelho = False
+    lado_cliente_xml = "emit"
 col1, col2, col3 = st.columns(3)
 with col1:
     nf_file = st.file_uploader("Enviar Nota Fiscal (PDF)", type=["pdf"])
@@ -981,8 +975,8 @@ if espelho_file:
     if xml_file:
         try:
             dados_nf = extrair_dados_xml(xml_file, lado_cliente=lado_cliente_xml)
-            origem_nf = f"XML ({lado_cliente_xml})"
-            diagnostico_nf = "Dados da NF extraídos via XML."
+            origem_nf = "XML"
+            diagnostico_nf = "Dados da NF extraÃ­dos via XML."
         except Exception as exc:
             st.error(f"Falha ao ler XML: {exc}")
             st.stop()
@@ -1014,14 +1008,14 @@ if espelho_file:
                 r"\b(\d{14})\b",
             ]),
             "endereco_cliente": buscar_primeiro(info_nf["texto"], [
-                r"ENDERE[ÇC]O\s*[:\-]?\s*([^\n\r]+)"
+                r"ENDERE[Ã‡C]O\s*[:\-]?\s*([^\n\r]+)"
             ]),
             "quantidade_caixas": buscar_primeiro(info_nf["texto"], [
                 r"(?:QTD|QTDE|QUANTIDADE|VOLUME(?:S)?|CAIXA(?:S)?)\s*(?:DE\s*VOLUMES|DE\s*CAIXAS)?\s*[:\-]?\s*(\d+)"
             ]),
             "peso": buscar_primeiro(info_nf["texto"], [
                 r"PESO\s*(?:BRUTO|B|TOTAL)\s*[:\-]?\s*([\d.,]+)",
-                r"PESO\s*(?:L[IÍ]QUIDO|L)\s*[:\-]?\s*([\d.,]+)",
+                r"PESO\s*(?:L[IÃ]QUIDO|L)\s*[:\-]?\s*([\d.,]+)",
                 r"([\d.,]+)\s*(?:KG|KGS)\b",
             ]),
             "frete": normalizar_frete(buscar_primeiro(info_nf["texto"], [
@@ -1040,17 +1034,17 @@ if espelho_file:
             ]),
             "transportadora_razao": buscar_primeiro(info_nf["texto"], [
                 r"TRANSPORTADORA\s*[:\-]?\s*([^\n\r]+)",
-                r"RAZ[AÃ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)"
+                r"RAZ[AÃƒ]O SOCIAL\s*[:\-]?\s*([^\n\r]+)"
             ]),
             "transportadora_cnpj": buscar_primeiro(info_nf["texto"], [
                 r"(?:CNPJ|CNPJ\/CPF)\s*[:\-]?\s*([\d./-]{11,18})",
                 r"\b(\d{14})\b",
             ]),
             "transportadora_ie": buscar_primeiro(info_nf["texto"], [
-                r"INSCRI[ÇC][AÃ]O ESTADUAL\s*[:\-]?\s*([0-9A-Za-z./-]+)"
+                r"INSCRI[Ã‡C][AÃƒ]O ESTADUAL\s*[:\-]?\s*([0-9A-Za-z./-]+)"
             ]),
             "transportadora_endereco": buscar_primeiro(info_nf["texto"], [
-                r"ENDERE[ÇC]O\s*[:\-]?\s*([^\n\r]+)"
+                r"ENDERE[Ã‡C]O\s*[:\-]?\s*([^\n\r]+)"
             ]),
         }
 
@@ -1077,51 +1071,20 @@ if espelho_file:
         diagnostico_nf = info_nf["observacao"]
 
     else:
-        st.info("Envie a NF em PDF ou o XML para iniciar a verificação.")
+        st.info("Envie a NF em PDF ou o XML para iniciar a verificaÃ§Ã£o.")
         st.stop()
-
-    st.markdown("### Diagnóstico de leitura")
-    st.write(f"- Espelho: fonte={info_espelho['fonte']}, score={info_espelho['score']}, tipo={tipo_espelho}.")
-    st.write(f"- NF: origem={origem_nf}. {diagnostico_nf}")
-
-    if debug_nf_blocos:
-        with st.expander("Debug da leitura da NF por blocos"):
-            st.json(debug_nf_blocos.get("diagnostico", {}))
-
-    with st.expander("Debug da leitura do espelho"):
-        st.json(debug_espelho.get("diagnostico", {}))
-
     df = analisar_dados(dados_nf, dados_espelho)
     df["Status"] = df["Status"].apply(label_status)
 
-    st.markdown(f"### Comparação dos dados (origem da NF: {origem_nf})")
+    st.markdown(f"### ComparaÃ§Ã£o dos dados (origem da NF: {origem_nf})")
     st.dataframe(df, use_container_width=True)
 
     csv = df.to_csv(index=False).encode("utf-8")
     st.download_button(
-        "Baixar relatório CSV",
+        "Baixar relatÃ³rio CSV",
         data=csv,
         file_name="comparacao_nf_espelho_v4.csv",
     )
-
-    with st.expander("Campos extraídos da NF / XML"):
-        st.json(dados_nf)
-
-    with st.expander("Campos extraídos do Espelho"):
-        st.json(dados_espelho)
-
-    if debug_nf_blocos:
-        with st.expander("Texto capturado na área do cliente da NF"):
-            st.text(debug_nf_blocos.get("texto_cliente", ""))
-
-        with st.expander("Texto capturado na área do transporte da NF"):
-            st.text(debug_nf_blocos.get("texto_transp", ""))
-
-    with st.expander("Texto capturado na área do cliente do espelho"):
-        st.text(debug_espelho.get("texto_cliente", ""))
-
-    with st.expander("Texto capturado na área do transporte do espelho"):
-        st.text(debug_espelho.get("texto_transp", ""))
 
     guide_url = "https://raw.githubusercontent.com/Brayan-GBL/Controle/main/NFXRMA.jpg"
     st.markdown("---")
@@ -1138,7 +1101,7 @@ if espelho_file:
             for img in renderizar_paginas_para_preview(nf_bytes, n_paginas=3):
                 st.image(img, use_container_width=True)
         else:
-            st.info("Preview da NF indisponível quando apenas o XML é enviado.")
+            st.info("Preview da NF indisponÃ­vel quando apenas o XML Ã© enviado.")
 
     with col_esp_prev:
         st.markdown("**Espelho / RMA**")
@@ -1146,4 +1109,5 @@ if espelho_file:
             st.image(img, use_container_width=True)
 
 else:
-    st.info("Envie ao menos o espelho / RMA para iniciar a verificação.")
+    st.info("Envie ao menos o espelho / RMA para iniciar a verificaÃ§Ã£o.")
+
